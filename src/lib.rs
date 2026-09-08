@@ -36,7 +36,8 @@ use soroban_sdk::{contract, contractimpl, Address, Env};
 
 use crate::storage::{extend_instance_ttl, extend_persistent_ttl};
 use crate::types::{
-    AttestationError, ContractInitialized, DataKey, IssuerAdded, IssuerRemoved,
+    Attestation, AttestationError, AttestationIssued, AttestationRevoked, ContractInitialized,
+    DataKey, IssuerAdded, IssuerRemoved,
 };
 
 #[contract]
@@ -103,6 +104,90 @@ impl AttestationContract {
         }
         env.storage().persistent().has(&DataKey::Issuer(address))
     }
+
+    /// Issue a new attestation for `subject`.
+    ///
+    /// Only registered issuers may call this. `claim_hash` must be the
+    /// SHA-256 commitment of the claim value (with salt); the raw claim is
+    /// never stored or transmitted to the contract. `expiry` is a Unix
+    /// timestamp (seconds) and must be strictly in the future.
+    ///
+    /// At most one *active* attestation may exist per `(subject,
+    /// claim_type)`. If a previous attestation was revoked, a fresh
+    /// attestation may be issued; the revoked record is retained for
+    /// auditability.
+    pub fn issue_attestation(
+        env: Env,
+        issuer: Address,
+        subject: Address,
+        claim_type: soroban_sdk::Symbol,
+        claim_hash: soroban_sdk::BytesN<32>,
+        expiry: u64,
+    ) -> Result<u32, AttestationError> {
+        Self::require_initialized(&env)?;
+        issuer.require_auth();
+
+        if !env.storage().persistent().has(&DataKey::Issuer(issuer.clone())) {
+            return Err(AttestationError::Unauthorized);
+        }
+        // Reject an all-zero commitment: it can never be the SHA-256 of a
+        // real claim preimage, so accepting it would allow a meaningless
+        // attestation that can never be selectively disclosed.
+        if claim_hash == soroban_sdk::BytesN::from_array(&env, &[0u8; 32]) {
+            return Err(AttestationError::InvalidClaim);
+        }
+
+        let now = env.ledger().timestamp();
+        if expiry <= now {
+            return Err(AttestationError::InvalidExpiry);
+        }
+
+        // Enforce one active attestation per (subject, claim_type).
+        let index_key = DataKey::SubjectIndex(subject.clone(), claim_type.clone());
+        if let Some(existing_id) = env.storage().persistent().get::<DataKey, u32>(&index_key) {
+            let existing: Attestation = env
+                .storage()
+                .persistent()
+                .get(&DataKey::Attestation(existing_id))
+                .ok_or(AttestationError::NotFound)?;
+            if !existing.revoked {
+                return Err(AttestationError::AlreadyIssued);
+            }
+            extend_persistent_ttl(&env, &index_key);
+        }
+
+        let id: u32 = env
+            .storage()
+            .instance()
+            .get(&DataKey::NextId)
+            .unwrap_or(1);
+        let attestation = Attestation {
+            id,
+            subject: subject.clone(),
+            claim_type: claim_type.clone(),
+            claim_hash,
+            issuer: issuer.clone(),
+            issued_at: now,
+            expiry,
+            revoked: false,
+        };
+
+        env.storage().persistent().set(&DataKey::Attestation(id), &attestation);
+        env.storage().persistent().set(&index_key, &id);
+        env.storage().instance().set(&DataKey::NextId, &(id + 1));
+        extend_persistent_ttl(&env, &DataKey::Attestation(id));
+        extend_persistent_ttl(&env, &index_key);
+        extend_instance_ttl(&env);
+
+        env.events().publish_event(&AttestationIssued {
+            id,
+            subject: subject.clone(),
+            claim_type: claim_type.clone(),
+            issuer: issuer.clone(),
+            expiry,
+        });
+        Ok(id)
+    }
 }
 
 impl AttestationContract {
@@ -113,5 +198,14 @@ impl AttestationContract {
             .instance()
             .get::<DataKey, Address>(&DataKey::Admin)
             .ok_or(AttestationError::NotInitialized)
+    }
+
+    /// Guards entrypoints that require the contract to be initialized.
+    fn require_initialized(env: &Env) -> Result<(), AttestationError> {
+        if env.storage().instance().has(&DataKey::Admin) {
+            Ok(())
+        } else {
+            Err(AttestationError::NotInitialized)
+        }
     }
 }
