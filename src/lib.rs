@@ -264,6 +264,49 @@ impl AttestationContract {
         extend_instance_ttl(&env);
         Ok(attestation)
     }
+
+    /// Selective disclosure: prove that `claim_value` (salted with `salt`)
+    /// matches the commitment stored for `subject`'s `claim_type`.
+    ///
+    /// The contract recomputes `sha256(claim_value || salt)` and compares it
+    /// to the stored commitment, so the raw claim value never touches the
+    /// ledger — only its digest is checked. Fails (returns `false`) for
+    /// missing, revoked, or expired attestations.
+    ///
+    /// The commitment scheme is `sha256(claim_value || salt)` and must be
+    /// reproduced identically by off-chain SDKs (see the backend SDK docs).
+    pub fn verify_claim_commitment(
+        env: Env,
+        subject: Address,
+        claim_type: soroban_sdk::Symbol,
+        claim_value: soroban_sdk::Bytes,
+        salt: soroban_sdk::Bytes,
+    ) -> bool {
+        if !env.storage().instance().has(&DataKey::Admin) {
+            return false;
+        }
+        let index_key = DataKey::SubjectIndex(subject, claim_type);
+        let Some(id) = env.storage().persistent().get::<DataKey, u32>(&index_key) else {
+            return false;
+        };
+        extend_persistent_ttl(&env, &index_key);
+
+        let key = DataKey::Attestation(id);
+        let Some(attestation) = env.storage().persistent().get::<DataKey, Attestation>(&key) else {
+            return false;
+        };
+        extend_persistent_ttl(&env, &key);
+
+        if attestation.revoked || attestation.expiry <= env.ledger().timestamp() {
+            return false;
+        }
+
+        let mut preimage = soroban_sdk::Bytes::new(&env);
+        preimage.append(&claim_value);
+        preimage.append(&salt);
+        let digest: soroban_sdk::BytesN<32> = env.crypto().sha256(&preimage).into();
+        digest == attestation.claim_hash
+    }
 }
 
 impl AttestationContract {
