@@ -61,8 +61,9 @@ impl AttestationContract {
         env.storage().instance().set(&DataKey::NextId, &1u32);
         extend_instance_ttl(&env);
 
-        env.events()
-            .publish_event(&ContractInitialized { admin: admin.clone() });
+        env.events().publish_event(&ContractInitialized {
+            admin: admin.clone(),
+        });
     }
 
     /// Register `issuer` as an authorized attestation issuer. Admin only.
@@ -130,7 +131,11 @@ impl AttestationContract {
         Self::require_initialized(&env)?;
         issuer.require_auth();
 
-        if !env.storage().persistent().has(&DataKey::Issuer(issuer.clone())) {
+        if !env
+            .storage()
+            .persistent()
+            .has(&DataKey::Issuer(issuer.clone()))
+        {
             return Err(AttestationError::Unauthorized);
         }
         // Reject an all-zero commitment: it can never be the SHA-256 of a
@@ -159,11 +164,7 @@ impl AttestationContract {
             extend_persistent_ttl(&env, &index_key);
         }
 
-        let id: u32 = env
-            .storage()
-            .instance()
-            .get(&DataKey::NextId)
-            .unwrap_or(1);
+        let id: u32 = env.storage().instance().get(&DataKey::NextId).unwrap_or(1);
         let attestation = Attestation {
             id,
             subject: subject.clone(),
@@ -175,7 +176,9 @@ impl AttestationContract {
             revoked: false,
         };
 
-        env.storage().persistent().set(&DataKey::Attestation(id), &attestation);
+        env.storage()
+            .persistent()
+            .set(&DataKey::Attestation(id), &attestation);
         env.storage().persistent().set(&index_key, &id);
         env.storage().instance().set(&DataKey::NextId, &(id + 1));
         extend_persistent_ttl(&env, &DataKey::Attestation(id));
@@ -220,8 +223,10 @@ impl AttestationContract {
         extend_persistent_ttl(&env, &key);
         extend_instance_ttl(&env);
 
-        env.events()
-            .publish_event(&AttestationRevoked { id: attestation_id, revoker: caller });
+        env.events().publish_event(&AttestationRevoked {
+            id: attestation_id,
+            revoker: caller,
+        });
         Ok(())
     }
 

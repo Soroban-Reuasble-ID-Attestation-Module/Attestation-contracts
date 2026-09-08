@@ -49,8 +49,10 @@ impl Fixture {
         let issuer = Address::generate(&env);
         let subject = Address::generate(&env);
 
-        let contract_id =
-            env.register(AttestationContract, AttestationContractArgs::__constructor(&admin));
+        let contract_id = env.register(
+            AttestationContract,
+            AttestationContractArgs::__constructor(&admin),
+        );
         let client = AttestationContractClient::new(&env, &contract_id);
         client.add_issuer(&issuer);
 
@@ -90,8 +92,10 @@ fn constructor_binds_admin_and_reads_are_total() {
     let admin = Address::generate(&env);
     let subject = Address::generate(&env);
 
-    let contract_id =
-        env.register(AttestationContract, AttestationContractArgs::__constructor(&admin));
+    let contract_id = env.register(
+        AttestationContract,
+        AttestationContractArgs::__constructor(&admin),
+    );
     let client = AttestationContractClient::new(&env, &contract_id);
 
     // The contract exists with the given admin; reads are total (no panic).
@@ -129,8 +133,10 @@ fn non_admin_cannot_manage_issuer_registry() {
     let newcomer = Address::generate(&env);
 
     // Constructor auth is auto-mocked during register, so initialization works.
-    let contract_id =
-        env.register(AttestationContract, AttestationContractArgs::__constructor(&admin));
+    let contract_id = env.register(
+        AttestationContract,
+        AttestationContractArgs::__constructor(&admin),
+    );
     let client = AttestationContractClient::new(&env, &contract_id);
 
     assert!(client.try_add_issuer(&newcomer).is_err());
@@ -258,7 +264,9 @@ fn reissue_is_allowed_after_revocation() {
         &(NOW + HOUR),
     );
     assert_eq!(id2, 2);
-    assert!(fx.client().verify(&fx.subject, &Symbol::new(&fx.env, "kyc_verified")));
+    assert!(fx
+        .client()
+        .verify(&fx.subject, &Symbol::new(&fx.env, "kyc_verified")));
 
     // The revoked record is retained for auditability.
     let old = fx.client().get_attestation(&id1);
@@ -273,20 +281,26 @@ fn reissue_is_allowed_after_revocation() {
 fn verify_passes_for_active_attestation() {
     let fx = Fixture::new();
     fx.issue_kyc();
-    assert!(fx.client().verify(&fx.subject, &Symbol::new(&fx.env, "kyc_verified")));
+    assert!(fx
+        .client()
+        .verify(&fx.subject, &Symbol::new(&fx.env, "kyc_verified")));
 }
 
 #[test]
 fn verify_fails_when_no_attestation_exists() {
     let fx = Fixture::new();
-    assert!(!fx.client().verify(&fx.subject, &Symbol::new(&fx.env, "kyc_verified")));
+    assert!(!fx
+        .client()
+        .verify(&fx.subject, &Symbol::new(&fx.env, "kyc_verified")));
 }
 
 #[test]
 fn verify_fails_on_claim_type_mismatch() {
     let fx = Fixture::new();
     fx.issue_kyc();
-    assert!(!fx.client().verify(&fx.subject, &Symbol::new(&fx.env, "accredited_investor")));
+    assert!(!fx
+        .client()
+        .verify(&fx.subject, &Symbol::new(&fx.env, "accredited_investor")));
 }
 
 #[test]
@@ -294,7 +308,9 @@ fn verify_fails_on_subject_substitution() {
     let fx = Fixture::new();
     fx.issue_kyc();
     let attacker = Address::generate(&fx.env);
-    assert!(!fx.client().verify(&attacker, &Symbol::new(&fx.env, "kyc_verified")));
+    assert!(!fx
+        .client()
+        .verify(&attacker, &Symbol::new(&fx.env, "kyc_verified")));
 }
 
 #[test]
@@ -307,20 +323,28 @@ fn verify_fails_after_expiry() {
         &commit(&fx.env, "v", "s"),
         &(NOW + HOUR),
     );
-    assert!(fx.client().verify(&fx.subject, &Symbol::new(&fx.env, "kyc_verified")));
+    assert!(fx
+        .client()
+        .verify(&fx.subject, &Symbol::new(&fx.env, "kyc_verified")));
 
     fx.env.ledger().set_timestamp(NOW + HOUR + 1);
-    assert!(!fx.client().verify(&fx.subject, &Symbol::new(&fx.env, "kyc_verified")));
+    assert!(!fx
+        .client()
+        .verify(&fx.subject, &Symbol::new(&fx.env, "kyc_verified")));
 }
 
 #[test]
 fn verify_fails_after_revocation() {
     let fx = Fixture::new();
     let id = fx.issue_kyc();
-    assert!(fx.client().verify(&fx.subject, &Symbol::new(&fx.env, "kyc_verified")));
+    assert!(fx
+        .client()
+        .verify(&fx.subject, &Symbol::new(&fx.env, "kyc_verified")));
 
     fx.client().revoke(&fx.issuer, &id);
-    assert!(!fx.client().verify(&fx.subject, &Symbol::new(&fx.env, "kyc_verified")));
+    assert!(!fx
+        .client()
+        .verify(&fx.subject, &Symbol::new(&fx.env, "kyc_verified")));
 }
 
 // ---------------------------------------------------------------------------
@@ -342,7 +366,9 @@ fn revoke_by_admin_is_allowed() {
     let fx = Fixture::new();
     let id = fx.issue_kyc();
     fx.client().revoke(&fx.admin, &id);
-    assert!(!fx.client().verify(&fx.subject, &Symbol::new(&fx.env, "kyc_verified")));
+    assert!(!fx
+        .client()
+        .verify(&fx.subject, &Symbol::new(&fx.env, "kyc_verified")));
 }
 
 #[test]
@@ -351,11 +377,7 @@ fn unrelated_account_cannot_revoke() {
     let id = fx.issue_kyc();
     let stranger = Address::generate(&fx.env);
 
-    let err = fx
-        .client()
-        .try_revoke(&stranger, &id)
-        .unwrap_err()
-        .unwrap();
+    let err = fx.client().try_revoke(&stranger, &id).unwrap_err().unwrap();
     assert_eq!(err, AttestationError::Unauthorized);
 }
 
@@ -397,7 +419,10 @@ fn get_attestation_returns_full_record() {
     assert_eq!(record.id, id);
     assert_eq!(record.subject, fx.subject);
     assert_eq!(record.claim_type, Symbol::new(&fx.env, "kyc_verified"));
-    assert_eq!(record.claim_hash, commit(&fx.env, "passport:AB123", "s3cret"));
+    assert_eq!(
+        record.claim_hash,
+        commit(&fx.env, "passport:AB123", "s3cret")
+    );
     assert_eq!(record.issuer, fx.issuer);
     assert_eq!(record.issued_at, NOW);
     assert_eq!(record.expiry, NOW + 365 * 24 * HOUR);
@@ -407,11 +432,7 @@ fn get_attestation_returns_full_record() {
 #[test]
 fn get_unknown_attestation_errors() {
     let fx = Fixture::new();
-    let err = fx
-        .client()
-        .try_get_attestation(&42)
-        .unwrap_err()
-        .unwrap();
+    let err = fx.client().try_get_attestation(&42).unwrap_err().unwrap();
     assert_eq!(err, AttestationError::NotFound);
 }
 

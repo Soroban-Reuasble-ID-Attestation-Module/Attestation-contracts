@@ -58,8 +58,10 @@ fn consumer_gate_honors_attestation_lifecycle() {
     let subject = Address::generate(&env);
     let claim_type = Symbol::new(&env, "kyc_verified");
 
-    let attestation_id =
-        env.register(AttestationContract, AttestationContractArgs::__constructor(&admin));
+    let attestation_id = env.register(
+        AttestationContract,
+        AttestationContractArgs::__constructor(&admin),
+    );
     let attestation = AttestationContractClient::new(&env, &attestation_id);
 
     attestation.add_issuer(&issuer);
@@ -79,7 +81,11 @@ fn consumer_gate_honors_attestation_lifecycle() {
     // ...and never sees one for a different subject (no substitution).
     assert!(!consumer.check(&attestation_id, &Address::generate(&env), &claim_type));
     // ...nor a different claim type.
-    assert!(!consumer.check(&attestation_id, &subject, &Symbol::new(&env, "accredited_investor")));
+    assert!(!consumer.check(
+        &attestation_id,
+        &subject,
+        &Symbol::new(&env, "accredited_investor")
+    ));
 
     // Revocation must propagate through the cross-contract path.
     attestation.revoke(&issuer, &id);
@@ -97,12 +103,18 @@ fn consumer_sees_no_attestation_before_issuance() {
     let admin = Address::generate(&env);
     let subject = Address::generate(&env);
 
-    let attestation_id =
-        env.register(AttestationContract, AttestationContractArgs::__constructor(&admin));
+    let attestation_id = env.register(
+        AttestationContract,
+        AttestationContractArgs::__constructor(&admin),
+    );
     let consumer_id = env.register(ConsumerContract, ());
     let consumer = ConsumerContractClient::new(&env, &consumer_id);
 
-    assert!(!consumer.check(&attestation_id, &subject, &Symbol::new(&env, "kyc_verified")));
+    assert!(!consumer.check(
+        &attestation_id,
+        &subject,
+        &Symbol::new(&env, "kyc_verified")
+    ));
 }
 
 /// Expiry must propagate through the cross-contract path as well.
@@ -117,8 +129,10 @@ fn consumer_sees_expiry() {
     let subject = Address::generate(&env);
     let claim_type = Symbol::new(&env, "kyc_verified");
 
-    let attestation_id =
-        env.register(AttestationContract, AttestationContractArgs::__constructor(&admin));
+    let attestation_id = env.register(
+        AttestationContract,
+        AttestationContractArgs::__constructor(&admin),
+    );
     let attestation = AttestationContractClient::new(&env, &attestation_id);
     attestation.add_issuer(&issuer);
     attestation.issue_attestation(
