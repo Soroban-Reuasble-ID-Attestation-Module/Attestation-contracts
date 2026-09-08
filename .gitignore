@@ -1,0 +1,7 @@
+/target
+*.wasm
+!scripts/*.sh
+.env
+.env.*
+!.env.example
+deployments/*.local.json

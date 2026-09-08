@@ -1,0 +1,30 @@
+[package]
+name = "attestation-contract"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.81"
+description = "Reusable Stellar identity & attestation protocol: cryptographic attestations bound to Soroban Address subjects, with issuer registry, persistent revocation, verification, and selective disclosure."
+license = "Apache-2.0"
+repository = "https://github.com/olaleyeolajide81-sketch/Attestation-contracts"
+keywords = ["stellar", "soroban", "attestation", "identity", "smart-contract"]
+categories = ["cryptography", "no-std"]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+soroban-sdk = "27.0.6"
+
+[dev-dependencies]
+soroban-sdk = { version = "27.0.6", features = ["testutils"] }
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+overflow-checks = true
+debug-assertions = false
+strip = "symbols"
+
+[profile.dev]
+overflow-checks = true
