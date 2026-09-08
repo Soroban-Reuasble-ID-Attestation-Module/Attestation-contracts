@@ -4,5 +4,5 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-cargo build --target wasm32-unknown-unknown --release
-echo "Built: target/wasm32-unknown-unknown/release/attestation_contract.wasm"
+cargo build --target wasm32v1-none --release
+echo "Built: target/wasm32v1-none/release/attestation_contract.wasm"

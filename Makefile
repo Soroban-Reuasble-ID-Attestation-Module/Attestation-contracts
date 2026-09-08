@@ -6,7 +6,7 @@
 #     optimize/deploy/invoke targets
 
 CONTRACT_NAME := attestation_contract
-WASM := target/wasm32-unknown-unknown/release/$(CONTRACT_NAME).wasm
+WASM := target/wasm32v1-none/release/$(CONTRACT_NAME).wasm
 
 .PHONY: build test clippy fmt wasm optimize deploy-testnet invoke-testnet clean
 
@@ -23,8 +23,10 @@ fmt:
 	cargo fmt --all -- --check
 
 ## Compile the contract to a wasm binary (release profile, size-optimized).
+## Uses wasm32v1-none, required by Soroban env for Rust 1.82+ (wasm32-unknown-unknown
+## enables reference-types/multi-value that the Soroban VM does not support).
 wasm:
-	cargo build --target wasm32-unknown-unknown --release
+	cargo build --target wasm32v1-none --release
 
 ## Produce an optimized wasm binary in ./target/optimized/.
 optimize: wasm

@@ -1,0 +1,6 @@
+{
+  "network": "testnet",
+  "rpc_url": "https://soroban-testnet.stellar.org",
+  "horizon_url": "https://horizon-testnet.stellar.org",
+  "attestation_contract": "CB2MGYTG6MIIDYWVB5BV4FLEF7KRDEF556JMVZXSZ22XALB7MUC7LU2S"
+}
