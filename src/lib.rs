@@ -188,6 +188,39 @@ impl AttestationContract {
         });
         Ok(id)
     }
+
+    /// Revoke an attestation by id. The issuing issuer or the admin may
+    /// revoke. Revocation is persistent and irreversible: a revoked
+    /// attestation fails every verification path.
+    pub fn revoke(env: Env, caller: Address, attestation_id: u32) -> Result<(), AttestationError> {
+        Self::require_initialized(&env)?;
+        caller.require_auth();
+
+        let key = DataKey::Attestation(attestation_id);
+        let attestation: Attestation = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .ok_or(AttestationError::NotFound)?;
+
+        let admin = Self::admin(&env)?;
+        if caller != attestation.issuer && caller != admin {
+            return Err(AttestationError::Unauthorized);
+        }
+        if attestation.revoked {
+            return Err(AttestationError::Revoked);
+        }
+
+        let mut updated = attestation.clone();
+        updated.revoked = true;
+        env.storage().persistent().set(&key, &updated);
+        extend_persistent_ttl(&env, &key);
+        extend_instance_ttl(&env);
+
+        env.events()
+            .publish_event(&AttestationRevoked { id: attestation_id, revoker: caller });
+        Ok(())
+    }
 }
 
 impl AttestationContract {
