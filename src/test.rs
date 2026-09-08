@@ -498,7 +498,7 @@ fn emits_expected_events() {
     let issued = events.last().unwrap();
     let ContractEventBody::V0(v0) = &issued.body;
     assert_eq!(v0.topics.len(), 2);
-    let name_topic: Val = v0.topics.get(0).unwrap().try_into_val(&fx.env).unwrap();
+    let name_topic: Val = v0.topics.first().unwrap().try_into_val(&fx.env).unwrap();
     let name = Symbol::try_from_val(&fx.env, &name_topic).unwrap();
     assert_eq!(name, Symbol::new(&fx.env, "attestation_issued"));
     let id_topic: Val = v0.topics.get(1).unwrap().try_into_val(&fx.env).unwrap();
@@ -524,7 +524,7 @@ fn emits_revocation_event() {
     let revoked = events.last().unwrap();
     let ContractEventBody::V0(v0) = &revoked.body;
     assert_eq!(v0.topics.len(), 2);
-    let name_topic: Val = v0.topics.get(0).unwrap().try_into_val(&fx.env).unwrap();
+    let name_topic: Val = v0.topics.first().unwrap().try_into_val(&fx.env).unwrap();
     let name = Symbol::try_from_val(&fx.env, &name_topic).unwrap();
     assert_eq!(name, Symbol::new(&fx.env, "attestation_revoked"));
     let id_topic: Val = v0.topics.get(1).unwrap().try_into_val(&fx.env).unwrap();
