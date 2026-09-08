@@ -30,6 +30,8 @@
 //! See `SECURITY.md` for the full analysis.
 
 mod storage;
+#[cfg(test)]
+mod test;
 mod types;
 
 use soroban_sdk::{contract, contractimpl, Address, Env};
@@ -45,12 +47,14 @@ pub struct AttestationContract;
 
 #[contractimpl]
 impl AttestationContract {
-    /// Initialize the contract with the `admin` account that manages the
-    /// issuer registry. Idempotency guard: can only be called once.
-    pub fn initialize(env: Env, admin: Address) -> Result<(), AttestationError> {
-        if env.storage().instance().has(&DataKey::Admin) {
-            return Err(AttestationError::AlreadyInitialized);
-        }
+    /// Constructor: binds the `admin` account that manages the issuer
+    /// registry and initializes the id counter.
+    ///
+    /// Running initialization in the constructor (rather than a separate
+    /// `initialize` entrypoint) means the admin is set atomically at deploy
+    /// time — there is no window in which a third party could front-run an
+    /// `initialize` call and seize control of the registry.
+    pub fn __constructor(env: Env, admin: Address) {
         admin.require_auth();
 
         env.storage().instance().set(&DataKey::Admin, &admin);
@@ -59,7 +63,6 @@ impl AttestationContract {
 
         env.events()
             .publish_event(&ContractInitialized { admin: admin.clone() });
-        Ok(())
     }
 
     /// Register `issuer` as an authorized attestation issuer. Admin only.
