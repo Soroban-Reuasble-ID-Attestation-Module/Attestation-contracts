@@ -221,6 +221,49 @@ impl AttestationContract {
             .publish_event(&AttestationRevoked { id: attestation_id, revoker: caller });
         Ok(())
     }
+
+    /// Verify that `subject` holds an active attestation for `claim_type`.
+    ///
+    /// Returns `false` when no attestation exists for the pair, when it has
+    /// been revoked, or when it has expired. This is the entrypoint other
+    /// contracts (e.g. an escrow) call cross-contract; it never panics and
+    /// never requires authorization.
+    pub fn verify(env: Env, subject: Address, claim_type: soroban_sdk::Symbol) -> bool {
+        if !env.storage().instance().has(&DataKey::Admin) {
+            return false;
+        }
+        let index_key = DataKey::SubjectIndex(subject, claim_type);
+        let Some(id) = env.storage().persistent().get::<DataKey, u32>(&index_key) else {
+            return false;
+        };
+        extend_persistent_ttl(&env, &index_key);
+
+        let key = DataKey::Attestation(id);
+        let Some(attestation) = env.storage().persistent().get::<DataKey, Attestation>(&key) else {
+            return false;
+        };
+        extend_persistent_ttl(&env, &key);
+
+        if attestation.revoked {
+            return false;
+        }
+        let now = env.ledger().timestamp();
+        attestation.expiry > now
+    }
+
+    /// Fetch the full attestation record by id. The record contains only
+    /// the cryptographic commitment — never raw claim data.
+    pub fn get_attestation(env: Env, attestation_id: u32) -> Result<Attestation, AttestationError> {
+        let key = DataKey::Attestation(attestation_id);
+        let attestation = env
+            .storage()
+            .persistent()
+            .get::<DataKey, Attestation>(&key)
+            .ok_or(AttestationError::NotFound)?;
+        extend_persistent_ttl(&env, &key);
+        extend_instance_ttl(&env);
+        Ok(attestation)
+    }
 }
 
 impl AttestationContract {
