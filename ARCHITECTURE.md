@@ -155,7 +155,49 @@ The escrow demonstration in the frontend repository relies on exactly this
 property: **the escrow contract itself** calls `verify()`, so a compromised or
 bypassed frontend can never release funds — the gate is on-chain.
 
-## 9. Read-path cost profile
+## 9. Escrow contract (`escrow-contract/`)
+
+The companion escrow holds a Stellar asset (USDC or any SAC-compatible
+token) and releases it to a fixed beneficiary only when the attestation
+contract confirms the subject holds an active, unrevoked attestation for
+the configured claim type.
+
+### 9.1 The gate is on-chain
+
+`release()` performs the decision itself:
+
+```text
+release(amount)
+  ├─ attestation_contract.verify(subject, claim_type)  ← cross-contract call
+  │    └─ false → Err(AttestationNotVerified)           funds stay put
+  └─ true  → token.transfer(escrow → beneficiary, amount)
+```
+
+The escrow calls the attestation contract through a locally defined
+[`#[contractclient]`](escrow-contract/src/lib.rs) interface, so its wasm
+contains only the cross-contract call — the attestation contract's code is
+never linked in (each contract deploys as an independent, small wasm).
+
+### 9.2 Storage
+
+- **Instance** (31-day TTL): admin, asset, attestation contract, subject,
+  claim type, beneficiary, and a `released` lifecycle flag.
+- **Persistent** (365-day TTL): total `Balance` and a per-depositor
+  `Deposits` map.
+
+### 9.3 Lifecycle and authorization
+
+- `deposit(from, amount)` — `from.require_auth()`; the SAC `transfer`
+  moves funds into the escrow; the deposit is recorded per depositor.
+- `release(amount)` — permissionless to trigger (the beneficiary is fixed at
+  construction), but *authorized* by the on-chain `verify()` result; the
+  first release sets the `released` flag and closes the escrow.
+- `withdraw(from, amount)` — the depositor claws back their own recorded
+  share; disabled once the escrow is closed. There are no privileged
+  movement functions, so funds can never be locked or redirected by the
+  admin.
+
+## 10. Read-path cost profile
 
 All entrypoints are constant-time with respect to the number of attestations:
 

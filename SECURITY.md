@@ -100,6 +100,34 @@ Three roles exist:
   the backend indexer keeps a persistent off-chain copy, so verification
   remains possible even if a record ages out of the ledger.
 
+### 2.11 Escrow: forged or unauthorized release
+
+- **Threat:** An attacker triggers `release()` while the subject holds no
+  valid attestation, or redirects funds to themselves.
+- **Mitigation:** `release()` is a single path to move funds out, and it
+  performs the gate **on-chain** by calling the attestation contract's
+  `verify(subject, claim_type)` cross-contract. A missing, revoked, or
+  expired attestation returns `Err(AttestationNotVerified)` and no transfer
+  occurs. The beneficiary is fixed at construction, so funds cannot be
+  redirected regardless of who triggers the release.
+
+### 2.12 Escrow: theft via withdraw or double-spend
+
+- **Threat:** A depositor withdraws more than they deposited, or funds are
+  withdrawn twice.
+- **Mitigation:** Withdrawals are capped at the depositor's own recorded
+  share in the per-depositor map and are disabled once the escrow is closed
+  by the first release. The total `Balance` is decremented on every
+  movement, so escrow accounting can never go negative.
+
+### 2.13 Escrow: stuck funds / admin abuse
+
+- **Threat:** The admin drains the escrow, or funds are locked forever.
+- **Mitigation:** There are no privileged movement functions — the admin
+  cannot withdraw on anyone's behalf. Every depositor can claw back their
+  own deposit before release, so funds are never locked in and never
+  custodial.
+
 ## 3. What this contract is *not* responsible for
 
 - **Issuer diligence.** The contract proves *that* a registered issuer issued
@@ -111,8 +139,9 @@ Three roles exist:
 
 ## 4. Testing posture
 
-- 31 automated tests (28 unit + 3 cross-contract integration) exercise the
-  real Soroban host, including real authorization on the admin path.
+- 45 automated tests (28 + 3 attestation, 11 + 3 escrow) exercise the
+  real Soroban host, including the full attestation → escrow → release
+  flow through both contracts and a real SAC token.
 - CI blocks on clippy warnings (`-D warnings`) and runs `cargo fmt --check`.
 - The contract was additionally exercised **on a live testnet deployment**:
   issue → verify → selective disclosure → duplicate rejection → revoke →

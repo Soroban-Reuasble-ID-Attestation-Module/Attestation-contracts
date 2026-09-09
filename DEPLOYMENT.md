@@ -107,6 +107,53 @@ stellar contract invoke --network testnet --source testnet-issuer --id $ID \
 # -> false
 ```
 
+## 4b. Deploy the attestation-gated escrow
+
+The escrow is configured atomically at deploy time: it holds a
+SAC-compatible token (e.g. testnet USDC) and releases funds to
+`ESCROW_BENEFICIARY` only when `ESCROW_SUBJECT` holds an active, unrevoked
+attestation for `ESCROW_CLAIM_TYPE`.
+
+```bash
+# The attestation contract must already be deployed (deployments/testnet.json).
+# Resolve the testnet USDC / SAC token address, then deploy:
+ESCROW_ASSET=C...USDC \
+ESCROW_SUBJECT=G...SUBJECT \
+ESCROW_CLAIM_TYPE=kyc_verified \
+ESCROW_BENEFICIARY=G...BENEFICIARY \
+STELLAR_SOURCE_ACCOUNT=testnet-issuer \
+  make deploy-escrow-testnet
+# ✅ Deployed!
+# C...ESCROW_ID  (also appended to deployments/testnet.json)
+```
+
+The generated implicit CLI mirrors the constructor schema; run
+`stellar contract deploy ... -- --help` to inspect the exact argument names.
+
+### Exercise the escrow
+
+```bash
+ESCROW_ID=C...ESCROW_ID
+ASSET=C...USDC
+SUBJECT=G...SUBJECT
+BENEFICIARY=G...BENEFICIARY
+
+# The subject deposits USDC into the escrow (requires the subject to hold tokens)
+stellar contract invoke --network testnet --source testnet-subject --id $ESCROW_ID \
+  -- deposit --from $SUBJECT --amount 10000000
+# -> () and escrow balance = 10000000
+
+# Release succeeds only while the attestation is valid:
+stellar contract invoke --network testnet --source testnet-issuer --id $ESCROW_ID \
+  -- release --amount 10000000
+# -> () and BENEFICIARY balance += 10000000
+
+# After revoking the attestation, release must fail:
+stellar contract invoke --network testnet --source testnet-issuer --id $ESCROW_ID \
+  -- release --amount 1
+# -> error: AttestationNotVerified
+```
+
 ## 5. Testnet → future production
 
 1. Deploy the same optimized wasm to a funded mainnet account

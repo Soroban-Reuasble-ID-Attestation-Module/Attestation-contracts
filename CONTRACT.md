@@ -124,6 +124,44 @@ Data payloads are maps keyed by the field names above (values are the
 corresponding SCVal types). Indexers must filter by topic 1 (event name) and
 may use topic 2 (id) for per-attestation queries.
 
+## 4b. Escrow contract (`attestation-escrow-contract`)
+
+The escrow holds a SAC-compatible token and releases it to a fixed
+beneficiary only when the attestation contract's `verify()` succeeds
+**on-chain** (see `ARCHITECTURE.md` §9).
+
+### Functions
+
+| Function | Signature | Notes |
+|---|---|---|
+| `__constructor` | `(admin: Address, asset: Address, attestation_contract: Address, subject: Address, claim_type: Symbol, beneficiary: Address)` | All parameters bound atomically at deploy; `admin` must authorize |
+| `deposit` | `(from: Address, amount: i128) -> Result<(), EscrowError>` | `from.require_auth()`; funds move via SAC `transfer`; recorded per depositor |
+| `release` | `(amount: i128) -> Result<(), EscrowError>` | Calls `attestation_contract.verify(subject, claim_type)`; transfers to `beneficiary` on success; first release closes the escrow |
+| `withdraw` | `(from: Address, amount: i128) -> Result<(), EscrowError>` | Depositor clawback of their own share; disabled after release |
+| `get_balance` | `() -> i128` | Total assets held |
+| `get_deposit` | `(address: Address) -> i128` | Per-depositor balance |
+| `is_released` | `() -> bool` | Lifecycle flag |
+| `config` | `() -> EscrowConfig` | `{ admin, asset, attestation_contract, subject, claim_type, beneficiary, released }` |
+
+### Escrow error codes (stable)
+
+| Code | Name | Meaning |
+|---|---|---|
+| 1 | `NotInitialized` | Constructor never ran |
+| 2 | `Unauthorized` | Caller not authorized |
+| 3 | `InvalidAmount` | Amount ≤ 0 |
+| 4 | `InsufficientBalance` | Escrow (or depositor) holds less than requested |
+| 5 | `AttestationNotVerified` | `verify()` returned false — missing, revoked, or expired |
+| 6 | `EscrowClosed` | A release already occurred |
+
+### Escrow events
+
+| Event | Topic 1 | Topic 2 | Data (map) |
+|---|---|---|---|
+| `deposited` | `"deposited"` | `from: Address` | `amount`, `total` |
+| `released` | `"released"` | — | `beneficiary`, `amount`, `remaining` |
+| `withdrawn` | `"withdrawn"` | `from: Address` | `amount`, `remaining` |
+
 ## 5. Commitment scheme
 
 ```

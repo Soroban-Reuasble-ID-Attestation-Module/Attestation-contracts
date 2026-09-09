@@ -93,6 +93,28 @@ deleted) so the history is auditable.
 | `get_attestation` | `(attestation_id: u32) -> Result<Attestation>` | Full record (commitment only) |
 | `verify_claim_commitment` | `(subject, claim_type, claim_value: Bytes, salt: Bytes) -> bool` | Selective disclosure |
 
+### Escrow contract (`attestation-escrow-contract`)
+
+A companion Soroban escrow that holds a Stellar asset (USDC or any
+SAC-compatible token) and releases it **only when the attestation contract
+confirms the subject holds an active, unrevoked attestation** for the
+configured claim type. The release decision happens on-chain inside the
+escrow via a cross-contract `verify()` call — no off-chain code can
+instruct it to release.
+
+| Function | Signature | Notes |
+|---|---|---|
+| `__constructor` | `(admin, asset, attestation_contract, subject, claim_type: Symbol, beneficiary)` | All parameters bound atomically at deploy |
+| `deposit` | `(from, amount: i128) -> Result` | Caller funds their own deposit |
+| `release` | `(amount: i128) -> Result` | Permissionless trigger; gated on-chain by `verify()`; closes the escrow |
+| `withdraw` | `(from, amount: i128) -> Result` | Depositor clawback before release |
+| `get_balance` / `get_deposit` | `-> i128` | Read-only helpers |
+| `is_released` | `-> bool` | Escrow lifecycle state |
+| `config` | `-> EscrowConfig` | Full configuration for off-chain display |
+
+See [`CONTRACT.md`](CONTRACT.md) for the full escrow interface and
+[`DEPLOYMENT.md`](DEPLOYMENT.md) for the testnet deployment walkthrough.
+
 ### Errors
 
 `Unauthorized`, `NotFound`, `Expired`, `Revoked`, `InvalidExpiry`,
@@ -116,16 +138,19 @@ decode it without external ABI files.
 
 ```
 .
-├── src/
-│   ├── lib.rs        # Entrypoints + authorization + orchestration
-│   ├── types.rs      # Attestation, DataKey, error codes, events
-│   ├── storage.rs    # TTL management helpers
-│   └── test.rs       # 28 unit tests
+├── src/                  # Attestation contract
+│   ├── lib.rs            #   entrypoints + authorization + orchestration
+│   ├── types.rs          #   Attestation, DataKey, error codes, events
+│   ├── storage.rs        #   TTL management helpers
+│   └── test.rs           #   28 unit tests
 ├── tests/
-│   └── integration.rs# Cross-contract consumer tests (3)
-├── scripts/          # build / optimize / deploy-testnet / invoke-testnet
-├── deployments/      # testnet.json — pinned deployed addresses
-├── Makefile          # Developer workflow
+│   └── integration.rs    #   cross-contract consumer tests (3)
+├── escrow-contract/      # Attestation-gated escrow contract
+│   ├── src/lib.rs        #   deposit / release / withdraw + tests (11)
+│   └── tests/integration.rs  #   full attestation→escrow flow (3)
+├── scripts/              # build / optimize / deploy-testnet / deploy-escrow-testnet / invoke-testnet
+├── deployments/          # testnet.json — pinned deployed addresses
+├── Makefile              # Developer workflow
 └── .github/workflows/ci.yml
 ```
 
@@ -137,13 +162,13 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 # 2. Build + test
 cargo build
-cargo test          # 31 tests
+cargo test          # 45 tests (attestation + escrow)
 cargo clippy --all-targets -- -D warnings
 cargo fmt --all -- --check
 
 # 3. Wasm + optimize (requires the stellar CLI: https://github.com/stellar/stellar-cli)
 make wasm
-make optimize       # -> target/optimized/attestation_contract.wasm (~20 KB)
+make optimize       # -> target/optimized/{attestation,attestation_escrow}_contract.wasm
 ```
 
 ## Build, test, deploy
@@ -161,6 +186,10 @@ stellar contract invoke --network testnet --source myissuer \
   --claim_type kyc_verified --claim_hash <64-hex> --expiry <unix-secs>
 stellar contract invoke --network testnet --source myissuer \
   --id <CONTRACT_ID> -- verify --subject G... --claim_type kyc_verified
+
+# Deploy the attestation-gated escrow (after the attestation contract above)
+ESCROW_ASSET=C...USDC ESCROW_SUBJECT=G... ESCROW_CLAIM_TYPE=kyc_verified \
+  ESCROW_BENEFICIARY=G... STELLAR_SOURCE_ACCOUNT=myissuer make deploy-escrow-testnet
 ```
 
 Full walkthrough: [`DEPLOYMENT.md`](DEPLOYMENT.md).
@@ -170,6 +199,7 @@ Full walkthrough: [`DEPLOYMENT.md`](DEPLOYMENT.md).
 | Component | Address |
 |---|---|
 | Attestation contract | `CB2MGYTG6MIIDYWVB5BV4FLEF7KRDEF556JMVZXSZ22XALB7MUC7LU2S` |
+| Attestation-gated escrow | deployed with `make deploy-escrow-testnet` (see [`DEPLOYMENT.md`](DEPLOYMENT.md)) |
 
 The single source of truth is [`deployments/testnet.json`](deployments/testnet.json) —
 consumed by the backend SDK and frontend.

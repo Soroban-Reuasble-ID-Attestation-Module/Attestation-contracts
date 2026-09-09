@@ -19,6 +19,23 @@ All notable changes to this repository are documented here, following
 - Live testnet deployment pinned in `deployments/testnet.json`
   (`CB2MGYTG6MIIDYWVB5BV4FLEF7KRDEF556JMVZXSZ22XALB7MUC7LU2S`) with the full
   lifecycle verified on-chain.
+- **New: attestation-gated escrow contract** (`escrow-contract/`):
+  - `__constructor(admin, asset, attestation_contract, subject, claim_type,
+    beneficiary)`, `deposit`, `release`, `withdraw`, and read helpers
+    (`get_balance`, `get_deposit`, `is_released`, `config`).
+  - The release gate is decided **on-chain** via a cross-contract `verify()`
+    call through a local `#[contractclient]` interface (the attestation wasm
+    is never linked into the escrow).
+  - Per-depositor balances with clawback before release; no privileged
+    movement functions; escrow closes after the first release.
+  - Stable escrow error codes 1–6 and events `deposited` / `released` /
+    `withdrawn`.
+  - 14 new tests (11 unit + 3 full-flow integration), 45 total; CI covers
+    the workspace.
+  - `make deploy-escrow-testnet` / `scripts/deploy-escrow-testnet.sh`
+    append the deployed escrow id to `deployments/testnet.json`; docs updated
+    (README, ARCHITECTURE §9, SECURITY §2.11–2.13, DEPLOYMENT §4b,
+    CONTRACT §4b).
 
 ## [0.1.0] - 2026-09-08
 
