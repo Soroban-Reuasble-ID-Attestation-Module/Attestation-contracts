@@ -1,0 +1,23 @@
+[package]
+name = "attestation-escrow-contract"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.81"
+description = "Soroban escrow that holds a Stellar asset (USDC/SAC-compatible) and releases funds only when the attestation contract confirms an active, unrevoked attestation — the release decision happens on-chain via a cross-contract verify() call."
+license = "Apache-2.0"
+repository = "https://github.com/Soroban-Reuasble-ID-Attestation-Module/Attestation-contracts"
+keywords = ["stellar", "soroban", "escrow", "attestation", "identity"]
+categories = ["cryptography", "no-std"]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+soroban-sdk = "27.0.6"
+
+[dev-dependencies]
+soroban-sdk = { version = "27.0.6", features = ["testutils"] }
+# Only used by the integration test to deploy a real attestation contract;
+# the escrow itself calls the attestation contract through a local
+# `#[contractclient]` interface so its wasm never links the attestation code.
+attestation-contract = { path = ".." }

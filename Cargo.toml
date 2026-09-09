@@ -5,7 +5,7 @@ edition = "2021"
 rust-version = "1.81"
 description = "Reusable Stellar identity & attestation protocol: cryptographic attestations bound to Soroban Address subjects, with issuer registry, persistent revocation, verification, and selective disclosure."
 license = "Apache-2.0"
-repository = "https://github.com/olaleyeolajide81-sketch/Attestation-contracts"
+repository = "https://github.com/Soroban-Reuasble-ID-Attestation-Module/Attestation-contracts"
 keywords = ["stellar", "soroban", "attestation", "identity", "smart-contract"]
 categories = ["cryptography", "no-std"]
 
@@ -17,6 +17,14 @@ soroban-sdk = "27.0.6"
 
 [dev-dependencies]
 soroban-sdk = { version = "27.0.6", features = ["testutils"] }
+
+[workspace]
+members = ["escrow-contract"]
+resolver = "2"
+
+# The root package (attestation-contract) is an implicit member of this
+# workspace. `cargo build`/`cargo test` from the repository root therefore
+# cover both contracts.
 
 [profile.release]
 opt-level = "s"
