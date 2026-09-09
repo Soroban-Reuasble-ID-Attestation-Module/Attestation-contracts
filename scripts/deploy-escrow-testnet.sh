@@ -57,7 +57,7 @@ OUTPUT=$(stellar contract deploy \
   --asset "$ESCROW_ASSET" \
   --attestation_contract "$ATTESTATION_CONTRACT" \
   --subject "$ESCROW_SUBJECT" \
-  --claim_type "symbol:${ESCROW_CLAIM_TYPE}" \
+  --claim_type "$ESCROW_CLAIM_TYPE" \
   --beneficiary "$ESCROW_BENEFICIARY")
 
 ESCROW_ID=$(echo "$OUTPUT" | tail -1)

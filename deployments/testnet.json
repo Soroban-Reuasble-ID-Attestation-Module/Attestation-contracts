@@ -2,5 +2,10 @@
   "network": "testnet",
   "rpc_url": "https://soroban-testnet.stellar.org",
   "horizon_url": "https://horizon-testnet.stellar.org",
-  "attestation_contract": "CB2MGYTG6MIIDYWVB5BV4FLEF7KRDEF556JMVZXSZ22XALB7MUC7LU2S"
+  "attestation_contract": "CC2ZHNVPKOGC56CZ6B3W3VWR7V67UZMDRFJHS552JWLYNYEKVXSUS535",
+  "escrow_contract": "CBRHBEEOMXXY7JOQC7A7YNKJ3G66S4TUHUEV3SJNFZQXWSKKOMM4JJ2R",
+  "escrow_asset": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+  "escrow_subject": "GAQ3AI6CQ3473JMQTYV3ONNU4K7ADQ25NIOCW2MQDBAPKHLNJOP2U7ZL",
+  "escrow_claim_type": "kyc_verified",
+  "escrow_beneficiary": "GAQ3AI6CQ3473JMQTYV3ONNU4K7ADQ25NIOCW2MQDBAPKHLNJOP2U7ZL"
 }
