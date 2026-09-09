@@ -154,6 +154,39 @@ stellar contract invoke --network testnet --source testnet-issuer --id $ESCROW_I
 # -> error: AttestationNotVerified
 ```
 
+### Live-network test escrows (current testnet deployment)
+
+Because minting the canonical testnet USDC requires Circle's admin
+contract (and the Circle faucet is captcha-gated), the escrow integration
+test uses a self-issued SAC token (**ATTD**, admin = the deployer, so the
+test can mint freely). The gating flow is identical for any SAC token.
+
+Deployed on testnet:
+
+| Escrow | Purpose | Subject | Id |
+|---|---|---|---|
+| positive | release succeeds (subject holds `kyc_verified`) | deployer | `CDIRMQHNQZ43C2VVFF3AZYJRK7PBTOJ73NXVWPGUH44IQQK3YCYWXJH5` |
+| negative | release rejected (`AttestationNotVerified`) | fresh account w/o attestation | `CC25MDG54GEZ24I3YBC2HWH5TNFNO4QRRC5QVSER2GQVW6EDB2X3XV2F` |
+| browser demo | frontend escrow page (pre-funded 25 ATTD deposit) | deployer | `CCN3BEKZ474PDBSIB7ZXKCSVHUK2KDT6UE2SI6TXD44FREITRIDJMIIV` |
+
+Asset: `ATTD:GAQ3AI6CQ3473JMQTYV3ONNU4K7ADQ25NIOCW2MQDBAPKHLNJOP2U7ZL`
+(SAC `CB5VE2AQ73WPCGRSUSQIZUB2GVJXZSTEMY6FKCCK44WPAAOZRF2Q2T2S`). The
+full deposit → release → withdraw flow is exercised by the backend-sdk's
+`npm run demo:escrow --workspace @attestation/examples` against the
+positive/negative escrows; the browser demo deposit is seeded via
+`npm run demo:escrow:setup --workspace @attestation/examples`.
+
+To deploy a fresh ATTD-bound escrow:
+
+```bash
+# Deploy the ATTD SAC (first time only), then the escrows:
+stellar contract asset deploy --asset "ATTD:$DEPLOYER" --source $DEPLOYER --network testnet
+stellar contract deploy --network testnet --source $DEPLOYER \
+  --wasm target/optimized/attestation_escrow_contract.wasm \
+  -- --admin $DEPLOYER --asset <ATTD_SAC> --attestation_contract <ATTESTATION_ID> \
+     --subject $SUBJECT --claim_type kyc_verified --beneficiary $BENEFICIARY
+```
+
 ## 5. Testnet → future production
 
 1. Deploy the same optimized wasm to a funded mainnet account
